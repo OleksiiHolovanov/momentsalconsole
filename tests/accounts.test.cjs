@@ -24,7 +24,7 @@ test('groups and assignments are isolated between users and survive relogin',()=
   assert.equal(h.run('groups.length'),0);assert.equal(h.run('Object.keys(assignments).length'),0);
   h.run("groups=[{id:'bob-group',name:'Private Bob'}];persistWorkspace();activateAccount(a)");assert.equal(h.run('groups[0].name'),'Private Alice');assert.equal(h.run("assignments['live:https://shared.example/']"),'alice-group');
   h.run("removeAccount('alice');sessions.set(a.id,{...a,token:'fresh',expires:Date.now()+10000});activateAccount(sessions.get('alice'))");assert.equal(h.run('groups[0].name'),'Private Alice');
-  assert(![...h.storage.values()].some(value=>/token-|@example.com|fresh/.test(value)));
+  assert(![...h.storage.values()].some(value=>/token-|fresh/.test(value)));
 });
 test('demo groups never enter a real user workspace',()=>{
   const h=harness();h.ctx.a=account('alice');h.run("groups=[{id:'demo-custom',name:'Demo only'}];persistWorkspace();sessions.set(a.id,a);activateAccount(a)");assert.equal(h.run('groups.length'),0);h.run('setupDemo()');assert.equal(h.run('groups[0].name'),'Demo only');
@@ -69,4 +69,11 @@ test('group picker moves selected sites and removes deselected members',()=>{
 });
 test('successful current metrics survive comparison API failure',async()=>{
   let analytics=0;const h=harness(async(url)=>{if(url.endsWith('/sites'))return{ok:true,json:async()=>({siteEntry:[{siteUrl:'https://alice.example/',permissionLevel:'siteOwner'}]})};analytics++;return analytics===1?{ok:true,json:async()=>({rows:[{keys:['2026-09-15'],clicks:42,impressions:420,position:4,ctr:.1}]})}:{ok:false,status:403,json:async()=>({error:{message:'comparison unavailable'}})}});h.ctx.a=account('alice');h.run('sessions.set(a.id,a);activateAccount(a)');await flush();assert.equal(h.run("data['https://alice.example/'].current[0].clicks"),42);assert.equal(h.run("data['https://alice.example/'].comparisonError"),'comparison unavailable');
+});
+test('remembered workspace remains selected when tab credentials are unavailable',()=>{
+  const storage=new Map([['momentalconsole:v2:last-account',JSON.stringify({id:'alice',email:'alice@example.com',name:'Alice'})]]);const h=harness(undefined,storage,new Map());assert.equal(h.run('currentAccount.id'),'alice');assert.equal(h.run('demo'),false);assert.equal(h.run('token'),null);assert.equal(h.element('#profile-email').textContent,'alice@example.com');
+});
+test('asset URLs are versioned by content so cached legacy code cannot mix with current HTML',()=>{
+  const crypto=require('node:crypto'),html=fs.readFileSync(path.join(__dirname,'../index.html'),'utf8');
+  for(const file of ['app.js','style.css','config.js']){const hash=crypto.createHash('sha256').update(fs.readFileSync(path.join(__dirname,'../'+file))).digest('hex').slice(0,12);assert(html.includes(file+'?v='+hash));}
 });

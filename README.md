@@ -35,3 +35,5 @@ CTR uses total clicks / total impressions. Average position is weighted by impre
 This implements the requested GSC portfolio dashboard, not all SEOGets features. GA4, indexing monitoring, scheduled emails, content-change tracking and shared client portals are not implemented.
 
 Inside each group, use “Добавить сайты” to choose its member sites. Creating a group opens the same picker. A site belongs to one group; assigning it to another moves it. The previous comparison period always has the same length as the selected range.
+
+Before publishing changed assets, run `npm run version-assets`. The HTML uses content hashes in asset URLs to prevent old JavaScript from running against a newer DOM. The remembered account identity stays selected if a Google token needs renewal; the app does not silently switch a signed-in user to demo data. Version r3 also exposes site membership controls in the group management dialog and beside each sidebar group.

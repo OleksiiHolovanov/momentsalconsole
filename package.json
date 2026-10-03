@@ -3,6 +3,7 @@
   "private": true,
   "scripts": {
     "test": "node --test tests/*.test.cjs",
-    "check": "node --check app.js && node --check config.js"
+    "check": "node --check app.js && node --check config.js",
+    "version-assets": "node scripts/version-assets.cjs"
   }
 }

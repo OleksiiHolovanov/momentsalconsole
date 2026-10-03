@@ -1,6 +1,6 @@
 # MomentalConsole
 
-Google Search Console dashboard: website groups, aggregate charts, individual site cards, period comparison, country/device/search-type filters, detailed query/page/country/device reports, CSV export.
+Google Search Console dashboard: website groups, aggregate charts, individual site cards, period comparison, custom date ranges, device/search-type filters, detailed query/page/country/device reports, CSV export.
 
 Site: https://oleksiiholovanov.github.io/momentsalconsole/
 
@@ -16,7 +16,7 @@ Scopes: `openid email profile https://www.googleapis.com/auth/webmasters.readonl
 
 Each user signs in with Google and sees the Search Console properties available to that account. Several accounts can be connected in one browser tab and switched through the top bar. Each has separate groups and assignments; switching does not combine portfolios. Leaving an account clears its in-memory token and statistics, but keeps its local group configuration. Login hints are only a convenience; workspace identity always comes from Google's userinfo response.
 
-Tokens, profiles, site lists and statistics are kept in memory only. Reloading requires signing in again. Groups and assignments persist in this browser's localStorage per Google user, with a separate demo workspace. This is browser-local separation, not a server-backed multi-tenant system: local device users can inspect localStorage. There is no cross-device group sync or shared workspace. API access is enforced by Google. GitHub Pages is static hosting and does not provide a user database or backend.
+OAuth tokens and account profiles are saved in sessionStorage for this browser tab, so a page reload restores the selected account until its Google token expires. Logout removes its saved credentials. Site lists and statistics are fetched again after reload. Tokens are never stored in localStorage or Git. Groups and assignments persist in this browser's localStorage per Google user, with a separate demo workspace. This is browser-local separation, not a server-backed multi-tenant system: local device users can inspect localStorage. There is no cross-device group sync or shared workspace. API access is enforced by Google. GitHub Pages is static hosting and does not provide a user database or backend.
 
 Old asynchronous responses cannot apply after switching or logout. Dashboard requests use the captured account token and are aborted on workspace changes.
 
@@ -33,3 +33,5 @@ GitHub Pages publishes the root of `main`. `.nojekyll` preserves the static file
 CTR uses total clicks / total impressions. Average position is weighted by impressions. The date range excludes the latest three days for GSC reporting latency. Detail queries fetch up to 50,000 rows; Google may return only top rows. Failed sites are listed and a warning marks partial aggregate results.
 
 This implements the requested GSC portfolio dashboard, not all SEOGets features. GA4, indexing monitoring, scheduled emails, content-change tracking and shared client portals are not implemented.
+
+Inside each group, use “Добавить сайты” to choose its member sites. Creating a group opens the same picker. A site belongs to one group; assigning it to another moves it. The previous comparison period always has the same length as the selected range.

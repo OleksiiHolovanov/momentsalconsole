@@ -4,13 +4,13 @@ const fs=require('node:fs');
 const vm=require('node:vm');
 const path=require('node:path');
 const app=fs.readFileSync(path.join(__dirname,'../app.js'),'utf8');
-function harness(fetcher=async()=>({ok:true,json:async()=>({siteEntry:[]})}),storage=new Map()){
+function harness(fetcher=async()=>({ok:true,json:async()=>({siteEntry:[]})}),storage=new Map(),tabStorage=new Map()){
   const elements=new Map();const timers=[];let oauth;
   function element(selector){if(!elements.has(selector))elements.set(selector,{value:selector==='#period'?'28':selector==='#sort'?'clicks':'',hidden:false,disabled:false,style:{},classList:{toggle(){}},addEventListener(){},focus(){},textContent:'',innerHTML:'',showModal(){this.open=true},close(){this.open=false}});return elements.get(selector)}
-  const ctx={document:{querySelector:element,querySelectorAll:()=>[]},localStorage:{getItem:k=>storage.get(k)||null,setItem:(k,v)=>storage.set(k,v)},window:{MOMENTAL_CONFIG:{googleClientId:'public.apps.googleusercontent.com'}},location:{origin:'https://oleksiiholovanov.github.io'},crypto:{randomUUID:()=> 'new-group'},setTimeout:f=>{timers.push(f)},Date,Math,Map,Number,String,JSON,Blob,URL,AbortController,fetch:fetcher};
+  const ctx={document:{querySelector:element,querySelectorAll:()=>[]},localStorage:{getItem:k=>storage.get(k)||null,setItem:(k,v)=>storage.set(k,v)},sessionStorage:{getItem:k=>tabStorage.get(k)||null,setItem:(k,v)=>tabStorage.set(k,v)},window:{MOMENTAL_CONFIG:{googleClientId:'public.apps.googleusercontent.com'}},location:{origin:'https://oleksiiholovanov.github.io'},crypto:{randomUUID:()=> 'new-group'},setTimeout:f=>{timers.push(f)},Date,Math,Map,Number,String,JSON,Blob,URL,AbortController,fetch:fetcher};
   ctx.google={accounts:{oauth2:{hasGrantedAllScopes:()=>true,initTokenClient(config){oauth={config};return{requestAccessToken(options){oauth.options=options}}}}}};ctx.window.google=ctx.google;
   vm.createContext(ctx);vm.runInContext(app,ctx);
-  return{ctx,element,storage,run:code=>vm.runInContext(code,ctx),oauth:()=>oauth};
+  return{ctx,element,storage,tabStorage,run:code=>vm.runInContext(code,ctx),oauth:()=>oauth};
 }
 const flush=()=>new Promise(resolve=>setImmediate(resolve));
 const account=(id,email=id+'@example.com')=>({id,email,name:id,token:'token-'+id,expires:Date.now()+3600000,sites:[]});
@@ -51,4 +51,22 @@ test('expired account prevents API requests and offers renewal',async()=>{
 });
 test('logout clears current data and late OAuth callback cannot restore the session',async()=>{
   const h=harness();h.ctx.a=account('alice');h.run("sessions.set(a.id,a);activateAccount(a);groups=[{id:'private',name:'Keep groups'}];persistWorkspace();data={'https://private/':{current:[]}};connect()");const callback=h.oauth().config.callback;h.run("removeAccount('alice')");await callback({access_token:'late-token',expires_in:3600});assert.equal(h.run('currentAccount'),null);assert.equal(h.run('sessions.size'),0);assert.equal(h.run('sites.length'),0);assert.equal(h.run('Object.keys(data).length'),0);assert.equal(h.run('groups.length'),0);assert([...h.storage.values()].some(v=>v.includes('Keep groups')));
+});
+test('reload restores selected Google account and logout clears tab credentials',async()=>{
+  const storage=new Map(),tab=new Map();const h=harness(undefined,storage,tab);h.ctx.a=account('alice');h.run('sessions.set(a.id,a);activateAccount(a)');await flush();
+  const reloaded=harness(undefined,storage,tab);assert.equal(reloaded.run('currentAccount.id'),'alice');assert.equal(reloaded.run('demo'),false);assert.equal(reloaded.run('token'),'token-alice');await flush();
+  reloaded.run("removeAccount('alice')");const afterLogout=harness(undefined,storage,tab);assert.equal(afterLogout.run('currentAccount'),null);assert.equal(afterLogout.run('sessions.size'),0);assert(![...tab.values()].some(v=>v.includes('token-alice')));
+});
+test('expired saved credentials retain account label without sending an expired token',()=>{
+  const tab=new Map([['momentalconsole:v2:sessions',JSON.stringify({activeId:'alice',demo:false,accounts:[{...account('alice'),expires:Date.now()-1000}]})]]);let calls=0;const h=harness(async()=>{calls++},new Map(),tab);assert.equal(h.run('currentAccount.id'),'alice');assert.equal(h.run('token'),null);assert.equal(calls,0);assert.equal(h.element('#connect').innerHTML,'Войти снова');
+});
+test('custom dates create an inclusive range and equal-length preceding comparison',()=>{
+  const h=harness();h.run("customRange={start:'2026-08-10',end:'2026-08-12'}");h.element('#period').value='custom';const d=h.run('dates()');assert.equal(d.n,3);assert.equal(d.start,'2026-08-10');assert.equal(d.end,'2026-08-12');assert.equal(d.ps,'2026-08-07');assert.equal(d.pe,'2026-08-09');
+  const body=h.run("requestBody('2026-08-10','2026-08-12',['date'])");assert.equal(body.dimensionFilterGroups,undefined);
+});
+test('group picker moves selected sites and removes deselected members',()=>{
+  const h=harness();h.run("active='clients'");h.ctx.document.querySelectorAll=selector=>selector==='[data-group-site]:checked'?[{dataset:{groupSite:'https://momental.agency/'}}]:[];h.run('applyGroupSites()');assert.equal(h.run("groupFor(sites.find(s=>s.name==='momental.agency'))"),'clients');assert.equal(h.run("groupFor(sites.find(s=>s.name==='urbanliving.ru'))"),'');assert.equal(h.run('visible().length'),1);
+});
+test('successful current metrics survive comparison API failure',async()=>{
+  let analytics=0;const h=harness(async(url)=>{if(url.endsWith('/sites'))return{ok:true,json:async()=>({siteEntry:[{siteUrl:'https://alice.example/',permissionLevel:'siteOwner'}]})};analytics++;return analytics===1?{ok:true,json:async()=>({rows:[{keys:['2026-09-15'],clicks:42,impressions:420,position:4,ctr:.1}]})}:{ok:false,status:403,json:async()=>({error:{message:'comparison unavailable'}})}});h.ctx.a=account('alice');h.run('sessions.set(a.id,a);activateAccount(a)');await flush();assert.equal(h.run("data['https://alice.example/'].current[0].clicks"),42);assert.equal(h.run("data['https://alice.example/'].comparisonError"),'comparison unavailable');
 });

@@ -83,3 +83,9 @@ test('chart aligns sparse dates and comparison values in hover tooltip',()=>{
  const tip=h.run("tooltipContent({rows:[{keys:['2026-08-11'],clicks:10,impressions:100,ctr:.1,position:3}],previous:[{keys:['2026-08-08'],clicks:5,impressions:50,ctr:.1,position:6}]},0)");assert.match(tip,/2026-08-11/);assert.match(tip,/2026-08-08/);assert.match(tip,/Средний CTR/);assert.match(tip,/100%/);assert.match(tip,/class=\"gain\">−50%/);
  const svg=h.run("lineChart([],[],false,['clicks','impressions','ctr','position'])");assert.equal((svg.match(/data-series=/g)||[]).length,8);
 });
+test('all search types merge counts and weight position only for eligible impressions',()=>{
+ const h=harness();const result=h.run("mergeSearchRows([[{keys:['2026-08-10'],clicks:10,impressions:100,position:2}],[{keys:['2026-08-10'],clicks:20,impressions:300,position:6}],[{keys:['2026-08-10'],clicks:50,impressions:600}]])");assert.equal(result[0].clicks,80);assert.equal(result[0].impressions,1000);assert.equal(result[0].ctr,.08);assert.equal(result[0].position,5);h.ctx.rows=result;assert.equal(h.run('totals(rows).position'),5);
+});
+test('all search tab queries six sources but query detail uses supported sources',async()=>{
+ const requested=[];const h=harness(async(url,options)=>{requested.push(JSON.parse(options.body).type);return{ok:true,json:async()=>({rows:[]})}});h.ctx.a=account('alice');h.run("type='all';nextGoogleRequestAt=0");h.ctx.setTimeout=resolve=>resolve();await h.run("query({siteUrl:'https://example/'},'2026-08-10','2026-08-12',['date'],a)");assert.deepEqual(requested,['web','image','video','news','discover','googleNews']);requested.length=0;await h.run("query({siteUrl:'https://example/'},'2026-08-10','2026-08-12',['query'],a)");assert.deepEqual(requested,['web','image','video','news']);
+});

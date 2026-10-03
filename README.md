@@ -37,3 +37,5 @@ This implements the requested GSC portfolio dashboard, not all SEOGets features.
 Inside each group, use “Добавить сайты” to choose its member sites. Creating a group opens the same picker. A site belongs to one group; assigning it to another moves it. The previous comparison period always has the same length as the selected range.
 
 Before publishing changed assets, run `npm run version-assets`. The HTML uses content hashes in asset URLs to prevent old JavaScript from running against a newer DOM. The remembered account identity stays selected if a Google token needs renewal; the app does not silently switch a signed-in user to demo data. Version r3 also exposes site membership controls in the group management dialog and beside each sidebar group.
+
+Charts support concurrent clicks, impressions, CTR and position series. Main metric cards toggle portfolio/group series; each site has its own toggles. Each series has its own scale, and hover/tap/arrow-key tooltips show exact daily values and the corresponding previous-period date. Choices persist per Google workspace.

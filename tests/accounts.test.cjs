@@ -77,3 +77,9 @@ test('asset URLs are versioned by content so cached legacy code cannot mix with 
   const crypto=require('node:crypto'),html=fs.readFileSync(path.join(__dirname,'../index.html'),'utf8');
   for(const file of ['app.js','style.css','config.js']){const hash=crypto.createHash('sha256').update(fs.readFileSync(path.join(__dirname,'../'+file))).digest('hex').slice(0,12);assert(html.includes(file+'?v='+hash));}
 });
+test('chart aligns sparse dates and comparison values in hover tooltip',()=>{
+ const h=harness();h.run("customRange={start:'2026-08-10',end:'2026-08-12'}");h.element('#period').value='custom';
+ const rows=h.run("chartRows([{keys:['2026-08-11'],clicks:10,impressions:100,ctr:.1,position:3}])");assert.equal(rows.length,3);assert.equal(rows[1].clicks,10);assert.equal(rows[0].missing,true);
+ const tip=h.run("tooltipContent({rows:[{keys:['2026-08-11'],clicks:10,impressions:100,ctr:.1,position:3}],previous:[{keys:['2026-08-08'],clicks:5,impressions:50,ctr:.1,position:6}]},0)");assert.match(tip,/2026-08-11/);assert.match(tip,/2026-08-08/);assert.match(tip,/Средний CTR/);assert.match(tip,/100%/);assert.match(tip,/class=\"gain\">−50%/);
+ const svg=h.run("lineChart([],[],false,['clicks','impressions','ctr','position'])");assert.equal((svg.match(/data-series=/g)||[]).length,8);
+});
